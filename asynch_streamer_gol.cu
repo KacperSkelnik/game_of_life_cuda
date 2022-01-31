@@ -1,6 +1,3 @@
-%%cu
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -60,12 +57,12 @@ int main(int argc, char* argv[]){
     int maxIter = 1000000;
     float probability = 0.2f;
     
-    ubyte* h_grid;
+    ubyte* h_grid;  
     ubyte* d_grid_curr;
     ubyte* d_grid_next;
+
     
-    size_t boardSize = sizeof(int)*gridDim*gridDim;
-    
+    size_t boardSize = sizeof(int)*gridDim*(gridDim);
     h_grid = (ubyte*)malloc(boardSize);
     srand(SRAND_VALUE);
     for(int i=0; i<gridDim; i++){
@@ -80,15 +77,18 @@ int main(int argc, char* argv[]){
     cudaMalloc((void **)&d_grid_curr, boardSize);
     cudaMalloc((void **)&d_grid_next, boardSize);
 
-    cudaMemcpy(d_grid_curr, h_grid, boardSize, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_grid_next, h_grid, boardSize, cudaMemcpyHostToDevice);
-    
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    cudaMemcpyAsync(d_grid_curr, h_grid, boardSize, cudaMemcpyHostToDevice, stream);
+    cudaMemcpyAsync(d_grid_next, h_grid, boardSize, cudaMemcpyHostToDevice, stream);
+
     int gridUnit = (int)ceil(gridDim/(float)BLOCK_SIZE);
     dim3 blocksize(BLOCK_SIZE, BLOCK_SIZE, 1);
     dim3 gridsize(gridUnit, gridUnit, 1);
 
     ubyte* d_curr;
-        ubyte* d_next;
+    ubyte* d_next;
     for (int gen=0; gen<maxIter; gen++){
         if ((gen % 2) == 0){
                 d_curr = d_grid_curr;
@@ -99,13 +99,14 @@ int main(int argc, char* argv[]){
                 d_next = d_grid_curr;
             }
 
-        simStep<<<gridsize, blocksize>>>(d_curr, d_next, gridDim);
+        simStep<<<gridsize, blocksize, 0, stream>>>(d_curr, d_next, gridDim);
+        
+        cudaStreamSynchronize(stream);
     }
 
-    cudaMemcpy(h_grid, d_grid_curr, boardSize, cudaMemcpyDeviceToHost);
+    cudaMemcpyAsync(h_grid, d_grid_curr, boardSize, cudaMemcpyDeviceToHost, stream);
 
-    cudaFree(d_grid_curr);
-    cudaFree(d_grid_next);
+    cudaStreamDestroy(stream);
 
     clock_t end = clock();
     double runtime = (double)(end - begin) / CLOCKS_PER_SEC;

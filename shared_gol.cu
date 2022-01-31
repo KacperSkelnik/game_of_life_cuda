@@ -1,3 +1,6 @@
+%%cu
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -24,16 +27,14 @@ __device__ ubyte getValue(ubyte* grid, int dim, int x, int y){
 }
 
 __device__ int getNeighborsSum(ubyte* grid, int dim, int x, int y){ 
-    int neighborsSum= getValue(grid, dim, x-1, y-1)
-                    + getValue(grid, dim, x-1, y)
-                    + getValue(grid, dim, x-1, y+1)
-                    + getValue(grid, dim, x, y-1)
-                    + getValue(grid, dim, x, y+1)
-                    + getValue(grid, dim, x+1, y-1)
-                    + getValue(grid, dim, x+1, y)
-                    + getValue(grid, dim, x+1, y+1);
-
-    return neighborsSum;
+    return getValue(grid, dim, x-1, y-1)
+            + getValue(grid, dim, x-1, y)
+            + getValue(grid, dim, x-1, y+1)
+            + getValue(grid, dim, x, y-1)
+            + getValue(grid, dim, x, y+1)
+            + getValue(grid, dim, x+1, y-1)
+            + getValue(grid, dim, x+1, y)
+            + getValue(grid, dim, x+1, y+1);
 }
 
 __global__ void simStep(ubyte* grid_curr, ubyte* grid_next, int dim){
@@ -104,7 +105,7 @@ int main(int argc, char* argv[]){
                 d_next = d_grid_curr;
             }
 
-        simStep<<<gridsize, blocksize>>>(d_curr, d_next, gridDim);
+        simStep<<<gridsize, blocksize>>>(d_curr, d_next, BLOCK_SIZE);
     }
 
     cudaMemcpy(h_grid, d_grid_curr, boardSize, cudaMemcpyDeviceToHost);
